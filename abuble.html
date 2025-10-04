@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EloTur - Conectando o Turismo Local</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .page-content { display: none; }
+        .active-page { display: block; }
+        .nav-link { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Configuração de Cores Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'elotur-blue': '#3B82F6', /* Azul primário */
+                        'elotur-green': '#10B981', /* Verde secundário */
+                        'elotur-light': '#F3F4F6',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Cabeçalho (Header) -->
+    <header class="bg-white shadow-md sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-elotur-blue cursor-pointer" onclick="showPage('home')">
+                <span class="text-elotur-green">Elo</span>Tur
+            </h1>
+            <!-- Menu de Navegação -->
+            <nav class="space-x-4">
+                <a class="nav-link text-gray-600 hover:text-elotur-blue font-medium" onclick="showPage('home')">Home</a>
+                <a class="nav-link text-gray-600 hover:text-elotur-blue font-medium" onclick="showPage('hotel')">Sou Hotel</a>
+                <a class="nav-link text-gray-600 hover:text-elotur-blue font-medium" onclick="showPage('provider')">Sou Prestador</a>
+                <a class="nav-link text-gray-600 hover:text-elotur-blue font-medium hidden sm:inline" onclick="showPage('about')">Sobre</a>
+                <a class="nav-link text-gray-600 hover:text-elotur-blue font-medium hidden sm:inline" onclick="showPage('feedback')">Feedback</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- 1. Página Inicial (Home) -->
+        <section id="home" class="page-content active-page py-16 text-center bg-white rounded-xl shadow-lg">
+            <div class="max-w-3xl mx-auto">
+                <p class="text-elotur-green font-semibold text-lg mb-2">🤝 Parcerias que fortalecem o destino</p>
+                <h2 class="text-4xl sm:text-5xl font-extrabold text-gray-800 mb-6 leading-tight">
+                    <span class="text-elotur-blue">Conectando</span> o turismo local.
+                </h2>
+                <p class="text-lg text-gray-600 mb-10">
+                    A EloTur é a sua plataforma de networking e cooperação no trade turístico. 
+                    Facilitamos a comunicação direta entre hotéis e prestadores de serviços confiáveis, 
+                    transformando indicações em negócios e fortalecendo o ecossistema da sua cidade.
+                </p>
+                <div class="space-y-4 sm:space-y-0 sm:space-x-6">
+                    <button onclick="showPage('hotel')" class="w-full sm:w-auto bg-elotur-blue hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition duration-300 shadow-lg shadow-elotur-blue/30 transform hover:scale-[1.02]">
+                        Sou Hotel & Buscar Prestadores
+                    </button>
+                    <button onclick="showPage('provider')" class="w-full sm:w-auto bg-elotur-green hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg transition duration-300 shadow-lg shadow-elotur-green/30 transform hover:scale-[1.02]">
+                        Sou Prestador de Serviço & Cadastrar
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Página "Sou Hotel" (Lista de Prestadores) -->
+        <section id="hotel" class="page-content">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Diretório de Prestadores</h2>
+            <p class="text-gray-600 mb-8">Encontre e contate parceiros locais de confiança para enriquecer a experiência dos seus hóspedes.</p>
+            
+            <!-- Filtros e Busca -->
+            <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex flex-col md:flex-row gap-4 items-center">
+                <input type="text" id="search-input" oninput="renderProviderListings()" placeholder="Buscar por nome ou descrição..." 
+                       class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-elotur-blue focus:border-elotur-blue">
+                
+                <select id="category-filter" onchange="renderProviderListings()" 
+                        class="p-3 border border-gray-300 rounded-lg w-full md:w-auto focus:ring-elotur-blue focus:border-elotur-blue bg-white">
+                    <option value="Todos">Todas as Categorias</option>
+                    <option value="Passeios">Passeios e Aventura</option>
+                    <option value="Transporte">Transporte e Transfer</option>
+                    <option value="Gastronomia">Gastronomia</option>
+                    <option value="Eventos">Eventos e Shows</option>
+                    <option value="Guias">Guias de Turismo</option>
+                </select>
+            </div>
+
+            <!-- Lista de Cards (Renderizada por JS) -->
+            <div id="provider-listings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards serão injetados aqui -->
+            </div>
+        </section>
+
+        <!-- 3. Página "Sou Prestador" (Formulário de Cadastro) -->
+        <section id="provider" class="page-content">
+            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Cadastre-se na EloTur</h2>
+                <p class="text-gray-600 mb-8">Aumente sua visibilidade e feche parcerias diretas com a rede hoteleira local.</p>
+
+                <form id="provider-form" onsubmit="handleProviderSubmit(event)">
+                    <!-- Nome da Empresa -->
+                    <div class="mb-5">
+                        <label for="provider-name" class="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa</label>
+                        <input type="text" id="provider-name" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green" placeholder="Ex: Cânions Expedições">
+                    </div>
+
+                    <!-- Categoria -->
+                    <div class="mb-5">
+                        <label for="provider-category" class="block text-sm font-medium text-gray-700 mb-1">Categoria de Serviço</label>
+                        <select id="provider-category" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green bg-white">
+                            <option value="">Selecione uma Categoria</option>
+                            <option value="Passeios">Passeios e Aventura</option>
+                            <option value="Transporte">Transporte e Transfer</option>
+                            <option value="Gastronomia">Gastronomia</option>
+                            <option value="Eventos">Eventos e Shows</option>
+                            <option value="Guias">Guias de Turismo</option>
+                        </select>
+                    </div>
+
+                    <!-- Descrição Curta -->
+                    <div class="mb-5">
+                        <label for="provider-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição Curta (máx. 100 caracteres)</label>
+                        <textarea id="provider-description" required maxlength="100" rows="2" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green" placeholder="O que sua empresa oferece de melhor?"></textarea>
+                    </div>
+
+                    <!-- Contato -->
+                    <div class="mb-5">
+                        <label for="provider-contact" class="block text-sm font-medium text-gray-700 mb-1">Contato (WhatsApp/Email)</label>
+                        <input type="text" id="provider-contact" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green" placeholder="Ex: (99) 99999-9999 ou contato@empresa.com">
+                    </div>
+
+                    <!-- Foto/Logo (Simulação) -->
+                    <div class="mb-8">
+                        <label for="provider-logo" class="block text-sm font-medium text-gray-700 mb-1">Foto/Logo (Simulação de Upload)</label>
+                        <input type="file" id="provider-logo" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green bg-white">
+                    </div>
+
+                    <button type="submit" class="w-full bg-elotur-green hover:bg-emerald-600 text-white font-bold py-3 rounded-lg transition duration-300 shadow-md transform hover:scale-[1.01]">
+                        Enviar Cadastro para Avaliação
+                    </button>
+                    
+                    <p id="provider-message" class="mt-4 text-center text-sm font-medium hidden"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- 4. Página "Sobre" (Missão e Modelo de Negócio) -->
+        <section id="about" class="page-content">
+            <div class="bg-white p-8 rounded-xl shadow-lg">
+                <h2 class="text-3xl font-bold text-elotur-blue mb-4">Nossa Missão: Fortalecer o Destino</h2>
+                <p class="text-lg text-gray-600 mb-8">A EloTur nasceu da necessidade de transformar o cenário turístico local, promovendo a cooperação em vez da competição.</p>
+
+                <div class="grid md:grid-cols-2 gap-8 mb-12">
+                    <div>
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="text-elotur-green mr-3 text-3xl">🎯</span> Integração e Cooperação
+                        </h3>
+                        <p class="text-gray-600">
+                            Nosso objetivo é integrar hotéis e prestadores de serviços de forma transparente e eficiente. Acreditamos que um trade unido oferece experiências superiores, o que beneficia todo o destino e atrai mais turistas.
+                        </p>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="text-elotur-green mr-3 text-3xl">🚀</span> Modelo de Negócio
+                        </h3>
+                        <p class="text-gray-600">
+                            A plataforma opera com um modelo freemium, garantindo que todos os parceiros tenham a chance de se conectar.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Mockup de Planos -->
+                <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">Planos EloTur</h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Plano Gratuito -->
+                    <div class="p-6 border-2 border-elotur-green rounded-xl bg-elotur-green/5 shadow-lg">
+                        <h4 class="text-2xl font-bold text-elotur-green mb-2">Plano Gratuito</h4>
+                        <p class="text-sm text-gray-600 mb-4">Ideal para quem está começando.</p>
+                        <ul class="space-y-3 text-gray-700">
+                            <li class="flex items-start">
+                                <span class="text-elotur-green mr-2 text-xl">✅</span>
+                                Cadastro básico no diretório
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-elotur-green mr-2 text-xl">✅</span>
+                                Visibilidade para hotéis (busca e filtros)
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-elotur-green mr-2 text-xl">❌</span>
+                                Contato inicial via formulário (moderação)
+                            </li>
+                        </ul>
+                    </div>
+                    <!-- Plano Premium -->
+                    <div class="p-6 border-2 border-elotur-blue rounded-xl bg-elotur-blue/5 shadow-xl scale-[1.02]">
+                        <h4 class="text-2xl font-bold text-elotur-blue mb-2">Plano Premium</h4>
+                        <p class="text-sm text-gray-600 mb-4">Máximo destaque e acesso direto.</p>
+                        <ul class="space-y-3 text-gray-700">
+                            <li class="flex items-start">
+                                <span class="text-elotur-blue mr-2 text-xl">⭐</span>
+                                Destaque visual e logo maior nos cards
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-elotur-blue mr-2 text-xl">📞</span>
+                                **Contato Direto** (WhatsApp/E-mail visível)
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-elotur-blue mr-2 text-xl">📈</span>
+                                Acesso a relatórios de engajamento
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 5. Página "Feedback" -->
+        <section id="feedback" class="page-content">
+            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Diga-nos o que você achou!</h2>
+                <p class="text-gray-600 mb-8">Seu feedback é essencial para aprimorarmos o conceito da EloTur.</p>
+
+                <form id="feedback-form" onsubmit="handleFeedbackSubmit(event)">
+                    <!-- Pergunta 1 -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">1. Você usaria essa plataforma no seu dia a dia (como Hotel ou Prestador)?</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="usage" value="Sim, com certeza" required class="form-radio text-elotur-blue h-5 w-5 rounded-full">
+                                <span class="ml-2 text-gray-700">Sim, com certeza</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="usage" value="Talvez, se tiver mais parceiros" class="form-radio text-elotur-blue h-5 w-5 rounded-full">
+                                <span class="ml-2 text-gray-700">Talvez, se tiver mais parceiros</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="usage" value="Não, prefiro métodos tradicionais" class="form-radio text-elotur-blue h-5 w-5 rounded-full">
+                                <span class="ml-2 text-gray-700">Não, prefiro métodos tradicionais</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Pergunta 2 -->
+                    <div class="mb-6">
+                        <label for="most-liked" class="block text-sm font-medium text-gray-700 mb-2">2. O que mais gostou na proposta da EloTur?</label>
+                        <textarea id="most-liked" required rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green" placeholder="A clareza, a lista de parceiros, o design..."></textarea>
+                    </div>
+
+                    <!-- Pergunta 3 -->
+                    <div class="mb-8">
+                        <label for="to-change" class="block text-sm font-medium text-gray-700 mb-2">3. O que você mudaria ou adicionaria na plataforma?</label>
+                        <textarea id="to-change" required rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-elotur-green focus:border-elotur-green" placeholder="Sugestões de novas funcionalidades ou melhorias."></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-elotur-blue hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition duration-300 shadow-md transform hover:scale-[1.01]">
+                        Enviar Feedback
+                    </button>
+                    <p id="feedback-message" class="mt-4 text-center text-sm font-medium hidden"></p>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Rodapé (Footer) -->
+    <footer class="bg-gray-800 text-white mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+            <div class="mb-4 sm:mb-0">
+                <h4 class="text-xl font-bold">EloTur</h4>
+                <p class="text-gray-400 text-sm">© 2025 EloTur. Todos os direitos reservados.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6 text-sm">
+                <a href="#" class="text-gray-300 hover:text-elotur-green transition duration-300">Contato: contato@elotur.com</a>
+                <a href="#" class="text-gray-300 hover:text-elotur-green transition duration-300" onclick="showPage('about')">Política de Privacidade</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Dados Mockup dos Prestadores de Serviço
+        const mockProviders = [
+            { id: 1, name: "Passeios Aventura Max", category: "Passeios", description: "Trilhas guiadas, rapel e tirolesa na natureza exuberante.", contact: "(45) 99123-4567 (WhatsApp)", logoText: "AV", logoColor: "bg-elotur-green" },
+            { id: 2, name: "Transporte VIP Prime", category: "Transporte", description: "Frota executiva com carros de luxo e motoristas bilíngues.", contact: "contato@vip-prime.com", logoText: "TX", logoColor: "bg-elotur-blue" },
+            { id: 3, name: "Sabor Regional Gourmet", category: "Gastronomia", description: "Restaurante com foco em culinária regional inovadora.", contact: "(45) 3578-1234", logoText: "RS", logoColor: "bg-amber-500" },
+            { id: 4, name: "Guias Certificados Local", category: "Guias", description: "Guias credenciados para Foz e Região. Pacotes personalizados.", contact: "guias@local.com", logoText: "GS", logoColor: "bg-red-500" },
+            { id: 5, name: "Mega Eventos Corporativos", category: "Eventos", description: "Organização de congressos, feiras e shows com estrutura completa.", contact: "(45) 98765-4321", logoText: "EV", logoColor: "bg-indigo-500" },
+            { id: 6, name: "Transfer Rápido e Seguro", category: "Transporte", description: "Serviço de transfer aeroporto/hotel 24h.", contact: "(45) 99999-0000", logoText: "TR", logoColor: "bg-elotur-blue" },
+            { id: 7, name: "Cicloturismo Verde", category: "Passeios", description: "Aluguel de bicicletas e roteiros de cicloturismo.", contact: "(45) 98888-1111", logoText: "CT", logoColor: "bg-elotur-green" },
+        ];
+
+        // Função para simular a navegação (esconder/mostrar seções)
+        function showPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(section => {
+                section.classList.remove('active-page');
+            });
+            const target = document.getElementById(pageId);
+            if (target) {
+                target.classList.add('active-page');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Se for a página de hotel, renderiza a lista
+                if (pageId === 'hotel') {
+                    renderProviderListings();
+                }
+            }
+        }
+
+        // Função para renderizar a lista de prestadores com filtros/busca
+        function renderProviderListings() {
+            const container = document.getElementById('provider-listings');
+            const filter = document.getElementById('category-filter').value;
+            const search = document.getElementById('search-input').value.toLowerCase();
+            
+            const filteredProviders = mockProviders.filter(provider => {
+                const categoryMatch = filter === 'Todos' || provider.category === filter;
+                const searchMatch = provider.name.toLowerCase().includes(search) || provider.description.toLowerCase().includes(search);
+                return categoryMatch && searchMatch;
+            });
+
+            container.innerHTML = '';
+
+            if (filteredProviders.length === 0) {
+                 container.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500 bg-gray-100 rounded-lg">
+                    Nenhum prestador encontrado com os filtros aplicados. Tente outra busca!
+                </div>`;
+                return;
+            }
+
+            filteredProviders.forEach(provider => {
+                // Simulação de Plano Premium (para o 1º e 2º card)
+                const isPremium = provider.id < 3; 
+                const premiumBadge = isPremium 
+                    ? `<span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full shadow-md">PREMIUM</span>`
+                    : '';
+                const contactBtnClass = isPremium 
+                    ? 'bg-elotur-blue hover:bg-blue-600'
+                    : 'bg-elotur-green hover:bg-emerald-600';
+                const premiumStyle = isPremium 
+                    ? 'border-elotur-blue ring-4 ring-elotur-blue/20 transform hover:scale-[1.03]'
+                    : 'border-gray-200 hover:shadow-lg';
+
+
+                const card = `
+                    <div class="bg-white p-6 rounded-xl shadow-md border ${premiumStyle} transition duration-300 relative">
+                        ${premiumBadge}
+                        <div class="flex items-start space-x-4 mb-4">
+                            <!-- Logo/Foto -->
+                            <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold ${provider.logoColor} flex-shrink-0 shadow-lg">
+                                ${provider.logoText}
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">${provider.name}</h3>
+                                <p class="text-sm text-elotur-green font-medium">${provider.category}</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mb-4 text-sm">${provider.description}</p>
+                        <p class="text-xs text-gray-500 mb-4">Localização: <span class="font-semibold">Centro/Região Turística</span></p>
+
+                        <button onclick="handleContact('${provider.name}', ${isPremium})" 
+                                class="w-full text-white font-bold py-2 rounded-lg transition duration-300 ${contactBtnClass}">
+                            ${isPremium ? `📞 Contato Direto: ${provider.contact}` : 'Entrar em Contato (via EloTur)'}
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // Simulação de Ação de Contato
+        function handleContact(providerName, isPremium) {
+            const messageType = isPremium ? 'diretamente' : 'via formulário de pré-contato';
+            alert(`Ação de Contato para ${providerName} iniciada! \n\nUm hotel iniciaria o contato ${messageType} para iniciar a parceria.`);
+        }
+
+        // Simulação de Envio de Cadastro de Prestador
+        function handleProviderSubmit(event) {
+            event.preventDefault();
+            const messageBox = document.getElementById('provider-message');
+            messageBox.classList.remove('hidden', 'text-red-500');
+            messageBox.classList.add('text-elotur-green', 'block');
+            messageBox.innerHTML = `✅ Cadastro de ${document.getElementById('provider-name').value} enviado com sucesso! Aguarde a avaliação da equipe EloTur.`;
+            
+            // Limpa o formulário após 3 segundos (simulação de sucesso)
+            setTimeout(() => {
+                document.getElementById('provider-form').reset();
+                messageBox.classList.add('hidden');
+                showPage('home'); // Volta para a home
+            }, 3000);
+        }
+
+        // Simulação de Envio de Feedback
+        function handleFeedbackSubmit(event) {
+            event.preventDefault();
+            const messageBox = document.getElementById('feedback-message');
+            messageBox.classList.remove('hidden', 'text-red-500');
+            messageBox.classList.add('text-elotur-blue', 'block');
+            
+            const usage = document.querySelector('input[name="usage"]:checked').value;
+
+            messageBox.innerHTML = `
+                Obrigado pelo seu feedback! 
+                <br>
+                Uso: "${usage}". 
+                <br>
+                Sua opinião é muito valiosa.
+            `;
+            
+            // Limpa o formulário após 3 segundos
+            setTimeout(() => {
+                document.getElementById('feedback-form').reset();
+                messageBox.classList.add('hidden');
+                showPage('home'); // Volta para a home
+            }, 3000);
+        }
+
+        // Inicia a aplicação na página Home e garante a renderização inicial
+        document.addEventListener('DOMContentLoaded', () => {
+            showPage('home');
+            // Pré-carrega a lista de prestadores, caso o usuário acesse a página Sou Hotel
+            renderProviderListings(); 
+        });
+
+    </script>
+</body>
+</html>

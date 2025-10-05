@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { jsPDF } from "jspdf";
 
 const mockPartners = [
   {
@@ -177,7 +178,7 @@ export default function Page() {
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
         const base64 = reader.result;
-        const { jsPDF } = window.jspdf || {};
+        //const { jsPDF } = window.jspdf || {};
         const doc = new jsPDF();
         doc.setFontSize(22);
         doc.text("Voucher Digital EloTur", 105, 20, null, null, "center");

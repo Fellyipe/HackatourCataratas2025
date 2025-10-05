@@ -42,8 +42,13 @@ export default function RootLayout({ children }) {
           src="https://cdn.tailwindcss.com"
           strategy="beforeInteractive"
         />
+        <Script
+          src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          strategy="afterInteractive"
+        />
       </head>
       <body className="bg-gray-50 min-h-screen font-inter">{children}</body>
     </html>
   );
 }
+// dentro do <head> do layout (antes do fechamento)

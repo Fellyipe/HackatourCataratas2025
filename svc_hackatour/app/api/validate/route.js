@@ -1,6 +1,6 @@
 // app/api/vouchers/validate/route.js
 import { NextResponse } from "next/server";
-import { supabaseServer } from "../../../../lib/supabaseServer";
+import { supabaseServer } from "../../../lib/supabaseServer";
 
 export async function POST(req) {
   // body { code }

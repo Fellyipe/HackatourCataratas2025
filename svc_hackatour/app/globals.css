@@ -1,42 +1,119 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* app/globals.css */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
+/* Basic reset + font stack */
 * {
   box-sizing: border-box;
-  padding: 0;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #f3f4f6; /* elotur-light */
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Variables to be used in custom CSS */
+:root {
+  --elotur-primary: #1b324f;
+  --elotur-secondary: #10b981;
+  --elotur-action: #3b82f6;
+  --elotur-light: #f3f4f6;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Header override */
+header {
+  background: var(--elotur-primary);
+}
+header h1 {
+  color: white;
+}
+
+/* Card utility */
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 1.25rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--elotur-action);
+  color: white;
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.18);
+}
+.btn-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+.btn-secondary {
+  background: var(--elotur-secondary);
+  color: white;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
+}
+.btn-muted {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* QR placeholder */
+.qr-placeholder {
+  width: 110px;
+  height: 110px;
+  border-radius: 6px;
+  background: var(--elotur-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* Small toast/feedback */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 60;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.12);
+  color: white;
+  font-weight: 600;
+}
+
+/* Responsivo leve */
+@media (max-width: 768px) {
+  .max-w-7xl {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .card {
+    padding: 1rem;
+  }
+  .qr-placeholder {
+    width: 86px;
+    height: 86px;
   }
 }

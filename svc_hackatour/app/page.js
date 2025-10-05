@@ -1,8 +1,7 @@
 // app/page.js
 "use client";
 
-import { useEffect, useState } from "react";
-import { jsPDF } from "jspdf";
+import { useEffect, useState, useRef } from "react";
 
 const mockPartners = [
   {
@@ -11,39 +10,38 @@ const mockPartners = [
     category: "Gastronomia",
     discount: "20% OFF no Almoço Executivo",
     logoText: "SR",
-    logoColor: "bg-amber-500",
+    logoClass: "bg-amber-500",
   },
   {
     id: 2,
     name: "Cânions Expedições",
     category: "Passeios",
-    discount: "30% OFF em qualquer trilha guiada",
+    discount: "30% OFF",
     logoText: "CE",
-    logoColor: "bg-elotur-secondary",
+    logoClass: "bg-[#10b981]",
   },
   {
     id: 3,
     name: "Transfer VIP Foz",
     category: "Transporte",
-    discount: "R$ 15 OFF em corridas para o aeroporto",
+    discount: "R$15 OFF",
     logoText: "TV",
-    logoColor: "bg-elotur-primary",
+    logoClass: "bg-[#1b324f]",
   },
   {
     id: 4,
     name: "Loja de Artesanato Local",
     category: "Compras",
-    discount: "10% de desconto em toda a loja",
+    discount: "10% desconto",
     logoText: "LA",
-    logoColor: "bg-purple-500",
+    logoClass: "bg-purple-500",
   },
 ];
 
 export default function Page() {
   const [page, setPage] = useState("home");
-  const [currentGuestLink, setCurrentGuestLink] = useState(
-    "elotur.com/resgate/?id=INICIO123"
-  );
+  const [currentGuestLink, setCurrentGuestLink] = useState("");
+  const [currentQrSrc, setCurrentQrSrc] = useState(null);
   const [voucherInventory, setVoucherInventory] = useState({
     monthlyQuota: 1000,
     quotaRemaining: 400,
@@ -57,117 +55,84 @@ export default function Page() {
       4: { issued: 50, redeemed: 75, codePrefix: "LOJA-ART" },
     },
   });
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [providerMessage, setProviderMessage] = useState("");
+  const [toast, setToast] = useState(null);
   const [partnerValidateMsg, setPartnerValidateMsg] = useState("");
   const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
-    // quando trocar páginas, scroll top
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
 
-  function showFeedback(msg, isSuccess = true) {
-    setFeedbackMessage(msg);
-    setTimeout(() => setFeedbackMessage(""), 2500);
+  function toastShow(message, success = true) {
+    // setToast({ message, success });
+    // setTimeout(() => setToast(null), 2800);
   }
 
-  // --- HOTEL ---
-  function renderStats() {
-    const totalIssued = voucherInventory.totalIssued;
-    const totalRedeemed = voucherInventory.totalRedeemed;
-    const redemptionRate =
-      totalIssued > 0 ? (totalRedeemed / totalIssued) * 100 : 0;
-    return { totalIssued, totalRedeemed, redemptionRate };
-  }
-
-  function handleGenerateVoucherLote() {
+  // HOTEL
+  function generateBatch() {
     const batch = voucherInventory.batchSize;
     if (voucherInventory.quotaRemaining < batch) {
-      showFeedback(
-        "❌ ERRO: Quota mensal insuficiente para gerar este lote.",
-        false
-      );
+      toastShow("Quota insuficiente para gerar este lote", false);
       return;
     }
     const lotId = "INICIO" + Math.floor(100 + Math.random() * 900);
     const newLink = `https://elotur.com/resgate/?id=${lotId}`;
-    // distribuir emitidos igualmente (mock)
+
+    // atualiza o estado do inventário (mock)
     setVoucherInventory((prev) => {
-      const updated = JSON.parse(JSON.stringify(prev));
-      updated.quotaRemaining -= batch;
-      updated.totalIssued += batch;
-      const perPartner = Math.floor(
-        batch / Object.keys(updated.partners).length
+      const next = JSON.parse(JSON.stringify(prev));
+      next.quotaRemaining -= batch;
+      next.totalIssued += batch;
+      const per = Math.floor(batch / Object.keys(next.partners).length);
+      Object.keys(next.partners).forEach(
+        (k) => (next.partners[k].issued += per)
       );
-      Object.keys(updated.partners).forEach((k) => {
-        updated.partners[k].issued += perPartner;
-      });
-      return updated;
+      return next;
     });
+
+    // seta link e gera URL do QR usando api.qrserver.com
     setCurrentGuestLink(newLink);
-    showFeedback(`✅ Lote de ${batch} Vouchers gerados! Link: ${lotId}`, true);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+      newLink
+    )}`;
+    setCurrentQrSrc(qrUrl);
+
+    toastShow(`Lote de ${batch} vouchers gerado (ID: ${lotId})`);
   }
 
-  function copyToClipboard(text, elId) {
-    navigator.clipboard?.writeText?.(text).then(
-      () => {
-        showFeedback("✅ Link copiado para a área de transferência!", true);
-        const btn = document.getElementById(elId);
-        if (btn) {
-          const originalText = btn.textContent;
-          btn.textContent = "COPIADO!";
-          setTimeout(() => (btn.textContent = originalText), 1500);
-        }
-      },
-      () => {
-        showFeedback(
-          "❌ Falha ao copiar. Selecione e copie manualmente.",
-          false
-        );
-      }
-    );
-  }
-
-  // --- PARTNER ---
-  function handleValidateCode(e) {
-    e.preventDefault();
-    const codeInput = document.getElementById("validation-code");
-    const code = (codeInput?.value || "").toUpperCase().trim();
-    if (!code) {
-      setPartnerValidateMsg("Digite o código do voucher para validar.");
-      showFeedback("❌ Código vazio", false);
+  // PARTNER
+  function validateCode(code) {
+    const c = (code || "").toUpperCase().trim();
+    if (!c) {
+      setPartnerValidateMsg("Digite o código");
+      toastShow("Código vazio", false);
       return;
     }
-    // regra simples de mock: começa com REST-SR- => válido (simulamos)
-    if (code.startsWith("REST-SR-")) {
-      const isUsed = code.endsWith("USED");
+    if (c.startsWith("REST-SR-")) {
+      const isUsed = c.endsWith("USED");
       if (isUsed) {
-        setPartnerValidateMsg("❌ VOUCHER JÁ RESGATADO. Uso Duplo Bloqueado.");
-        showFeedback("❌ Voucher já usado!", false);
+        setPartnerValidateMsg("❌ Voucher já resgatado");
+        toastShow("Voucher já usado", false);
       } else {
-        // atualiza estado mock
         setVoucherInventory((prev) => {
-          const upd = JSON.parse(JSON.stringify(prev));
-          upd.totalRedeemed += 1;
-          upd.partners[1].redeemed += 1;
-          return upd;
+          const n = JSON.parse(JSON.stringify(prev));
+          n.totalRedeemed += 1;
+          n.partners[1].redeemed += 1;
+          return n;
         });
-        setPartnerValidateMsg(
-          `✅ VOUCHER VÁLIDO! Desconto aplicado (ID: ${code}).`
-        );
-        showFeedback("✅ Voucher validado!", true);
+        setPartnerValidateMsg(`✅ Voucher válido (ID: ${c})`);
+        toastShow("Voucher validado", true);
       }
     } else {
-      setPartnerValidateMsg("❌ Código inválido.");
-      showFeedback("❌ Código inválido!", false);
+      setPartnerValidateMsg("❌ Código inválido");
+      toastShow("Código inválido", false);
     }
-    if (codeInput) codeInput.value = "";
   }
 
   async function openCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      showFeedback("❌ Câmera não suportada neste navegador.", false);
+      toastShow("Câmera não suportada", false);
       return;
     }
     try {
@@ -175,298 +140,275 @@ export default function Page() {
         video: { facingMode: "environment" },
       });
       setCameraStream(s);
-      const video = document.getElementById("camera-stream");
-      if (video) video.srcObject = s;
-      // câmera mostrada via modal area (see below)
+      const v = videoRef.current;
+      if (v) {
+        v.srcObject = s;
+        try {
+          await v.play();
+        } catch (err) {
+          console.warn("Play bloqueado, tentando com muted", err);
+          v.muted = true;
+          v.play().catch(() => {});
+        }
+      }
     } catch (err) {
       console.error(err);
-      showFeedback("❌ Falha ao acessar câmera.", false);
+      toastShow("Falha ao acessar câmera", false);
     }
   }
-
   function closeCamera() {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((t) => t.stop());
-      setCameraStream(null);
-    }
+    if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop());
+    setCameraStream(null);
+    const v = document.getElementById("camera-stream");
+    if (v) v.srcObject = null;
   }
 
-  // --- GUEST (PDF generation) ---
-  async function handleGenerateGuestVoucher(partnerName, discount, codePrefix) {
-    // cria um código mock e QR via serviço externo
+  // GUEST - generate PDF (uses external QR service and jsPDF loaded by CDN)
+  async function generateGuestPdf(partnerName, discount, codePrefix) {
     const voucherCode = `${codePrefix}-KORE${Math.floor(
       100 + Math.random() * 900
     )}`;
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=elotur-voucher-${voucherCode}`;
-    showFeedback("Gerando PDF do voucher...", true);
-
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=elotur-voucher-${voucherCode}`;
+    toastShow("Gerando PDF...", true);
     try {
-      // pega imagem do qr
-      const res = await fetch(qrCodeUrl);
+      const res = await fetch(qrUrl);
       const blob = await res.blob();
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
-        const base64data = reader.result;
+        const base64 = reader.result;
+        const { jsPDF } = window.jspdf || {};
         const doc = new jsPDF();
         doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
         doc.text("Voucher Digital EloTur", 105, 20, null, null, "center");
-
         doc.setFontSize(16);
-        doc.setFont("helvetica", "normal");
         doc.text(partnerName, 105, 40, null, null, "center");
-
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
         doc.setTextColor(16, 185, 129);
         doc.text(discount, 105, 55, null, null, "center");
         doc.setTextColor(0, 0, 0);
-
-        doc.addImage(base64data, "PNG", 75, 70, 60, 60);
-
+        doc.addImage(base64, "PNG", 75, 70, 60, 60);
         doc.setFontSize(12);
         doc.text(
-          "Apresente este QR Code ao atendente ou informe o código abaixo:",
+          "Apresente este QR Code ao atendente ou informe o código:",
           105,
           145,
           null,
           null,
           "center"
         );
-
-        doc.setFontSize(24);
+        doc.setFontSize(18);
         doc.setFont("courier", "bold");
         doc.rect(50, 155, 110, 20);
         doc.text(voucherCode, 105, 168, null, null, "center");
-
-        doc.setFontSize(10);
-        doc.setTextColor(150);
-        doc.text(
-          "Este voucher é de uso único e intransferível.",
-          105,
-          190,
-          null,
-          null,
-          "center"
-        );
-
         doc.save(`Voucher-${partnerName.replace(/\s/g, "_")}.pdf`);
-        showFeedback("✅ PDF gerado e baixado.", true);
+        toastShow("PDF gerado");
       };
     } catch (err) {
       console.error(err);
-      showFeedback("❌ Erro ao gerar PDF.", false);
+      toastShow("Erro ao gerar PDF", false);
     }
   }
 
-  // --- PROVIDER / FEEDBACK MOCKS (simular envio) ---
-  async function handleProviderSubmit(e) {
-    e.preventDefault();
-    const name = e.target["provider-name"]?.value || "Novo Prestador";
-    setProviderMessage(`✅ Cadastro de ${name} enviado. (simulado)`);
-    setTimeout(() => {
-      setProviderMessage("");
-      e.target.reset();
-      setPage("home");
-    }, 1500);
+  async function downloadQr(qrUrl) {
+    if (!qrUrl) {
+      toastShow("Nenhum QR para baixar", false);
+      return;
+    }
+    try {
+      const res = await fetch(qrUrl);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = `qr-voucher.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toastShow("QR baixado");
+    } catch (err) {
+      console.error(err);
+      toastShow("Erro ao baixar QR", false);
+    }
   }
 
-  async function handleFeedbackSubmit(e) {
-    e.preventDefault();
-    const usage = e.target.usage?.value || "";
-    setFeedbackMessage(`Obrigado! Uso: "${usage}" (simulado).`);
-    setTimeout(() => {
-      setFeedbackMessage("");
-      e.target.reset();
-      setPage("home");
-    }, 1500);
-  }
-
-  const stats = renderStats();
+  // helpers for stats
+  const totalIssued = voucherInventory.totalIssued;
+  const totalRedeemed = voucherInventory.totalRedeemed;
+  const redemptionRate =
+    totalIssued > 0 ? (totalRedeemed / totalIssued) * 100 : 0;
 
   return (
     <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <header className="bg-elotur-primary text-white shadow-xl sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <header className="sticky top-0 z-30 bg-[#f3f4f6] text-white shadow-md mb-6">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1
-            className="text-3xl font-extrabold cursor-pointer"
+            className="text-2xl font-extrabold cursor-pointer"
             onClick={() => setPage("home")}
           >
-            <span className="text-elotur-secondary">Elo</span>Tur
+            <img
+              src="logo.png"
+              alt="EloTur"
+              className="h-14 w-auto inline-block"
+            />
           </h1>
           <nav className="space-x-4">
             <button
-              className="text-gray-300 hover:text-white font-medium"
               onClick={() => setPage("hotel-dashboard")}
+              className="text-gray-800 hover:text-gray-500"
             >
-              Hotel (Gestão)
+              Hotel
             </button>
             <button
-              className="text-gray-300 hover:text-white font-medium"
               onClick={() => setPage("partner-dashboard")}
+              className="text-gray-800 hover:text-gray-500"
             >
-              Parceiro (Validação)
+              Parceiro
             </button>
             <button
-              className="text-gray-300 hover:text-white font-medium"
               onClick={() => setPage("guest-app")}
+              className="text-gray-800 hover:text-gray-500"
             >
-              Hóspede (Simulação)
+              Hóspede
             </button>
           </nav>
         </div>
       </header>
 
-      {/* Home */}
+      {/* HOME */}
       {page === "home" && (
-        <section className="page-content active-page py-16 text-center bg-white rounded-xl shadow-2xl">
-          <div className="max-w-4xl mx-auto">
-            <p className="text-elotur-secondary font-bold text-lg mb-2">
-              ✅ Eficiência e ROI
-            </p>
-            <h2 className="text-4xl sm:text-5xl font-extrabold text-elotur-primary mb-6 leading-tight">
-              Gestão de Vouchers Digitais:{" "}
-              <span className="text-elotur-secondary">
-                Simples, Centralizada
-              </span>
-            </h2>
-            <p className="text-lg text-gray-600 mb-10">
-              Clique nas abas acima para simular a dinâmica: Hotel, Parceiro e
-              Hóspede.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <button
-                onClick={() => setPage("hotel-dashboard")}
-                className="bg-elotur-primary hover:bg-elotur-primary/90 text-white font-bold py-4 rounded-xl"
-              >
-                1. Painel do Hotel
-              </button>
-              <button
-                onClick={() => setPage("partner-dashboard")}
-                className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 rounded-xl"
-              >
-                2. Painel do Parceiro
-              </button>
-              <button
-                onClick={() => setPage("guest-app")}
-                className="bg-elotur-secondary hover:bg-elotur-secondary/90 text-white font-bold py-4 rounded-xl"
-              >
-                3. Acesso do Hóspede
-              </button>
-            </div>
+        <section className="page-content active-page card text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-[#1b324f] mb-4">
+            Gestão de Vouchers Digitais
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Use as abas para navegar entre as três visões: Hotel, Parceiro e
+            Hóspede.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => setPage("hotel-dashboard")}
+              className="btn btn-primary"
+            >
+              Painel do Hotel
+            </button>
+            <button
+              onClick={() => setPage("partner-dashboard")}
+              className="btn btn-muted"
+            >
+              Painel do Parceiro
+            </button>
+            <button
+              onClick={() => setPage("guest-app")}
+              className="btn btn-secondary"
+            >
+              Acesso do Hóspede
+            </button>
           </div>
         </section>
       )}
 
       {/* HOTEL */}
       {page === "hotel-dashboard" && (
-        <section className="page-content active-page">
-          <h2 className="text-3xl font-extrabold text-elotur-primary mb-6">
-            Painel do Hotel
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-elotur-primary">
-              <p className="text-sm font-semibold text-gray-500">
-                Quota Mensal (Total)
-              </p>
-              <h3
-                id="monthly-quota-card"
-                className="text-4xl font-extrabold text-elotur-primary"
-              >
+        <section className="page-content active-page space-y-6">
+          <h2 className="text-2xl font-bold text-[#1b324f]">Painel do Hotel</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="card flex flex-col items-center justify-center text-center">
+              <p className="text-sm text-gray-500">Quota Mensal</p>
+              <div className="text-3xl font-extrabold text-[#1b324f]">
                 {voucherInventory.monthlyQuota.toLocaleString()}
-              </h3>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-elotur-secondary">
-              <p className="text-sm font-semibold text-gray-500">
-                Vouchers a Gerar (Restantes)
-              </p>
-              <h3
-                id="quota-remaining-card"
-                className="text-4xl font-extrabold text-elotur-secondary"
-              >
+            <div className="card flex flex-col items-center justify-center text-center">
+              <p className="text-sm text-gray-500">Vouchers Restantes</p>
+              <div className="text-3xl font-extrabold text-[#10b981]">
                 {voucherInventory.quotaRemaining.toLocaleString()}
-              </h3>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-elotur-primary">
-              <p className="text-sm font-semibold text-gray-500">
-                Vouchers Resgatados (Mês)
-              </p>
-              <h3
-                id="total-uses-card"
-                className="text-4xl font-extrabold text-elotur-primary"
-              >
-                {stats.totalRedeemed.toLocaleString()}
-              </h3>
+            <div className="card flex flex-col items-center justify-center text-center">
+              <p className="text-sm text-gray-500">Vouchers Resgatados</p>
+              <div className="text-3xl font-extrabold text-[#1b324f]">
+                {voucherInventory.totalRedeemed.toLocaleString()}
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center">
-              <p
-                id="batch-size-info"
-                className="text-sm text-gray-600 mb-2 font-medium text-center"
-              >
-                Gerar Lote de {voucherInventory.batchSize} Vouchers
-              </p>
-              <button
-                id="generate-lote-button"
-                onClick={handleGenerateVoucherLote}
-                className="w-full bg-elotur-primary text-white font-bold py-3 rounded-lg"
-              >
-                Gerar Link Único de Distribuição
-              </button>
-              <div id="qr-code-display" className="mt-4 w-full">
-                {currentGuestLink &&
-                currentGuestLink !== "elotur.com/resgate/?id=INICIO123" ? (
-                  <div className="text-center p-4 bg-gray-50 border border-gray-300 rounded-lg">
-                    <p className="text-xs text-gray-500 mb-1 font-semibold">
-                      LINK DE DISTRIBUIÇÃO
-                    </p>
-                    <div className="qr-placeholder mx-auto mb-2">
-                      QR {currentGuestLink.slice(-7)}
+            <div className="card flex flex-col justify-between flex flex-col items-center justify-center text-center">
+              <p className="text-sm text-gray-500">Gerar Lote de vouchers</p>
+              <div>
+                <button
+                  id="generate-lote-button"
+                  onClick={() => generateBatch()}
+                  className="w-full btn btn-primary mt-2"
+                >
+                  Gerar Link de Distribuição
+                </button>
+                <div className="mt-4 " id="qr-code-display">
+                  {currentGuestLink ? (
+                    <div className="text-center flex flex-col items-center justify-center text-center">
+                      <div className="qr-placeholder mb-2">
+                        {currentQrSrc ? (
+                          <img
+                            src={currentQrSrc}
+                            alt="QR do link"
+                            className="w-full h-full object-cover rounded"
+                          />
+                        ) : (
+                          "QR"
+                        )}
+                      </div>
+
+                      <p className="truncate text-sm text-elotur-primary">
+                        {currentGuestLink}
+                      </p>
+
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(currentGuestLink);
+                            toastShow("Link copiado");
+                          }}
+                          className="btn btn-muted flex-1"
+                        >
+                          Copiar link
+                        </button>
+                        <button
+                          onClick={() =>
+                            downloadQr(
+                              currentQrSrc ||
+                                `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                                  currentGuestLink
+                                )}`
+                            )
+                          }
+                          className="btn btn-primary flex-1"
+                        >
+                          Baixar QR
+                        </button>
+                      </div>
                     </div>
-                    <p
-                      className="mt-2 text-elotur-primary text-sm font-semibold truncate"
-                      title={currentGuestLink}
-                    >
-                      {currentGuestLink}
-                    </p>
-                    <button
-                      id="copy-link-btn"
-                      onClick={() =>
-                        copyToClipboard(currentGuestLink, "copy-link-btn")
-                      }
-                      className="w-full mt-2 bg-gray-800 text-white text-xs font-bold py-2 rounded-lg"
-                    >
-                      COPIAR LINK
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center p-4">
-                    <p className="text-sm text-red-500">Aguardando novo lote</p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center text-sm text-gray-500">
+                      Aguardando lote
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">
-              Controle de Inventário por Parceiro
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-3 text-[#1b324f]">
+              Distribuição por Parceiro
             </h3>
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <p className="text-sm font-semibold text-gray-500">
-                    Taxa de Resgate
-                  </p>
-                  <h3 className="text-3xl font-extrabold text-elotur-secondary">
-                    {stats.redemptionRate.toFixed(1)}%
-                  </h3>
+                <p className="text-sm text-gray-500">Taxa de Resgate</p>
+                <div className="text-2xl font-bold text-[#10b981] mb-4">
+                  {redemptionRate.toFixed(1)}%
                 </div>
-                <h4 className="text-lg font-semibold text-elotur-secondary mb-3">
-                  Distribuição do Resgate
-                </h4>
-                <div id="usage-chart" className="p-2">
+                <div id="usage-chart">
                   {mockPartners.map((p) => {
                     const inv = voucherInventory.partners[p.id];
                     const totalUsed = Object.values(
@@ -475,7 +417,7 @@ export default function Page() {
                     const percent =
                       totalUsed > 0 ? (inv.redeemed / totalUsed) * 100 : 0;
                     return (
-                      <div key={p.id} className="mb-4">
+                      <div key={p.id} className="mb-3">
                         <div className="flex justify-between text-sm text-gray-700">
                           <span>{p.category}</span>
                           <span>
@@ -488,9 +430,9 @@ export default function Page() {
                               p.category === "Gastronomia"
                                 ? "bg-amber-500"
                                 : p.category === "Passeios"
-                                ? "bg-elotur-secondary"
+                                ? "bg-[#10b981]"
                                 : p.category === "Transporte"
-                                ? "bg-elotur-primary"
+                                ? "bg-[#1b324f]"
                                 : "bg-purple-500"
                             } h-2.5 rounded-full`}
                             style={{ width: `${percent}%` }}
@@ -502,28 +444,28 @@ export default function Page() {
                 </div>
               </div>
               <div>
-                <h4 className="text-lg font-semibold text-elotur-primary mb-3">
-                  Tabela de Inventário por Parceiro
+                <h4 className="text-sm font-semibold text-[#1b324f] mb-2">
+                  Tabela de Inventário
                 </h4>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="p-3 text-left text-xs text-gray-500">
                           Parceiro
                         </th>
-                        <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">
+                        <th className="p-3 text-center text-xs text-gray-500">
                           Emitidos
                         </th>
-                        <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">
+                        <th className="p-3 text-center text-xs text-gray-500">
                           Resgatados
                         </th>
-                        <th className="p-4 text-center text-xs font-medium text-gray-500 uppercase">
+                        <th className="p-3 text-center text-xs text-gray-500">
                           Taxa
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody>
                       {mockPartners.map((p) => {
                         const inv = voucherInventory.partners[p.id];
                         const rate =
@@ -532,16 +474,12 @@ export default function Page() {
                             : 0;
                         return (
                           <tr key={p.id} className="border-b hover:bg-gray-50">
-                            <td className="p-4 text-gray-800 font-medium">
-                              {p.name}
-                            </td>
-                            <td className="p-4 text-center text-lg font-bold">
-                              {inv.issued}
-                            </td>
-                            <td className="p-4 text-center text-lg font-bold text-elotur-secondary">
+                            <td className="p-3 font-medium">{p.name}</td>
+                            <td className="p-3 text-center">{inv.issued}</td>
+                            <td className="p-3 text-center text-[#10b981] font-bold">
                               {inv.redeemed}
                             </td>
-                            <td className="p-4 text-center font-bold text-sm">
+                            <td className="p-3 text-center">
                               {rate.toFixed(1)}%
                             </td>
                           </tr>
@@ -558,77 +496,51 @@ export default function Page() {
 
       {/* PARTNER */}
       {page === "partner-dashboard" && (
-        <section className="page-content active-page">
-          <h2 className="text-3xl font-extrabold text-elotur-primary mb-6">
+        <section className="page-content active-page space-y-6">
+          <h2 className="text-2xl font-bold text-[#1b324f]">
             Painel do Parceiro
           </h2>
-          <div className="max-w-3xl mx-auto">
-            <p className="text-xl font-bold text-center text-gray-800 mb-6">
-              Bem-vindo(a),{" "}
-              <span id="partner-name-display" className="text-elotur-primary">
-                Parceiro Exemplo
-              </span>
+          <div className="card text-center">
+            <p className="text-sm text-gray-500">Vouchers Resgatados (mês)</p>
+            <div className="text-4xl font-extrabold text-[#10b981]">
+              {voucherInventory.partners[1].redeemed}
+            </div>
+            <p className="text-gray-600 mt-2">
+              Cada resgate confirma uma visita trazida pelo sistema.
             </p>
-            <div className="bg-white p-8 rounded-xl shadow-lg text-center mb-8 border-t-4 border-elotur-secondary">
-              <p className="text-sm font-semibold text-gray-500 uppercase">
-                Vouchers Resgatados no Mês
-              </p>
-              <h3
-                id="partner-metric-main"
-                className="text-7xl font-extrabold text-elotur-secondary my-4"
-              >
-                {voucherInventory.partners[1].redeemed}
-              </h3>
-              <p className="text-gray-600">
-                Cada resgate confirma uma nova visita trazida pelo sistema.
-              </p>
-            </div>
+          </div>
 
-            <div className="bg-white p-8 rounded-xl shadow-lg">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Validação de Voucher Digital
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Insira o código do voucher ou use a câmera para escanear o QR
-                Code.
-              </p>
-              <form onSubmit={handleValidateCode}>
-                <label
-                  htmlFor="validation-code"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Código do Voucher
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="validation-code"
-                    type="text"
-                    required
-                    className="w-full p-4 border-2 border-gray-300 rounded-lg text-xl text-center tracking-widest uppercase"
-                    placeholder="CÓDIGO..."
-                    maxLength={20}
-                  />
-                  <button
-                    type="button"
-                    onClick={openCamera}
-                    className="p-4 bg-gray-200 hover:bg-gray-300 rounded-lg"
-                  >
-                    📷
-                  </button>
-                </div>
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-3">Validação de Voucher</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                validateCode(e.target["validation-code"].value);
+                e.target["validation-code"].value = "";
+              }}
+            >
+              <label className="block text-sm mb-2">Código do voucher</label>
+              <div className="flex gap-2">
+                <input
+                  id="validation-code"
+                  className="flex-1 p-3 border rounded-lg text-center tracking-widest uppercase"
+                  placeholder="CÓDIGO..."
+                />
                 <button
-                  type="submit"
-                  className="w-full mt-4 bg-elotur-primary text-white font-bold py-3 rounded-lg"
+                  type="button"
+                  onClick={openCamera}
+                  className="p-3 bg-gray-200 rounded-lg"
                 >
-                  Resgatar Voucher
+                  📷
                 </button>
-              </form>
-              {partnerValidateMsg && (
-                <p id="validation-message" className="text-center mt-3">
-                  {partnerValidateMsg}
-                </p>
-              )}
-            </div>
+              </div>
+              <button type="submit" className="mt-4 btn btn-primary w-full">
+                Resgatar Voucher
+              </button>
+            </form>
+            {partnerValidateMsg && (
+              <p className="mt-3 text-center">{partnerValidateMsg}</p>
+            )}
           </div>
         </section>
       )}
@@ -636,72 +548,51 @@ export default function Page() {
       {/* GUEST */}
       {page === "guest-app" && (
         <section className="page-content active-page">
-          <div className="max-w-md mx-auto bg-white rounded-xl shadow-2xl">
-            <div className="bg-elotur-secondary text-white p-6 rounded-t-xl text-center">
-              <p className="text-sm font-semibold mb-1">
-                Vouchers Digitais EloTur
-              </p>
-              <h2 className="text-2xl font-extrabold">
-                Olá, Hóspede do Hotel!
-              </h2>
+          <div className="max-w-md mx-auto card">
+            <div className="bg-[#10b981] text-black p-4 rounded-t-lg">
+              <div className="text-sm">Vouchers Digitais EloTur</div>
+              <div className="text-xl font-bold">Olá, Hóspede!</div>
             </div>
-            <div className="bg-yellow-100 text-yellow-800 p-3 text-center font-medium flex justify-center items-center space-x-2">
-              <span className="text-lg">🔗</span>
-              <p className="text-sm truncate">
-                Acessando via link:{" "}
-                <span id="guest-current-link" className="font-bold">
-                  {currentGuestLink}
-                </span>
-              </p>
-            </div>
-            <div className="p-4 space-y-4 guest-card-container">
-              <h3 className="text-xl font-bold text-elotur-primary mb-3">
-                Seus Vouchers Disponíveis:
+
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold text-[#1b324f]">
+                Seus Vouchers
               </h3>
-              <div id="guest-benefits-list" className="space-y-4">
+              <div className="space-y-3">
                 {mockPartners.map((p) => {
                   const voucherCode = `${
                     voucherInventory.partners[p.id].codePrefix
                   }-KORE769`;
                   return (
-                    <div
-                      key={p.id}
-                      className="bg-white p-4 rounded-xl shadow-lg border border-gray-100"
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <span className="text-3xl">
-                          {p.category === "Gastronomia"
-                            ? "🍽️"
-                            : p.category === "Passeios"
-                            ? "🏞️"
-                            : p.category === "Transporte"
-                            ? "🚌"
-                            : "🎁"}
-                        </span>
+                    <div key={p.id} className="bg-white p-3 rounded-lg border">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${p.logoClass}`}
+                        >
+                          {p.logoText}
+                        </div>
                         <div>
-                          <h3 className="text-lg font-bold text-elotur-primary">
+                          <div className="font-bold text-[#1b324f]">
                             {p.name}
-                          </h3>
-                          <p className="text-xs text-gray-500">{p.category}</p>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {p.category}
+                          </div>
                         </div>
                       </div>
-                      <div className="mb-4">
-                        <p className="text-2xl font-extrabold text-elotur-secondary">
+                      <div className="mb-3">
+                        <div className="text-lg font-extrabold text-[#10b981]">
                           {p.discount}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Voucher digital para uso único durante sua estadia.
-                        </p>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Uso único durante a estadia
+                        </div>
                       </div>
                       <button
                         onClick={() =>
-                          handleGenerateGuestVoucher(
-                            p.name,
-                            p.discount,
-                            voucherCode
-                          )
+                          generateGuestPdf(p.name, p.discount, voucherCode)
                         }
-                        className="w-full rounded-lg bg-elotur-secondary hover:bg-elotur-secondary/90 text-white font-bold py-2"
+                        className="w-full btn btn-secondary"
                       >
                         Gerar PDF do Voucher
                       </button>
@@ -718,21 +609,26 @@ export default function Page() {
       {cameraStream && (
         <div
           id="camera-view"
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4"
         >
-          <div className="bg-white p-4 rounded-lg shadow-xl relative max-w-lg w-full">
-            <h3 className="text-lg font-bold mb-2 text-gray-800">
-              Aponte para o QR Code
-            </h3>
+          <div className="bg-white p-4 rounded-lg w-full max-w-lg">
+            <h3 className="font-bold mb-3">Aponte para o QR Code</h3>
             <video
               id="camera-stream"
-              className="w-full h-auto max-h-[60vh] rounded-md bg-gray-900"
               autoPlay
               playsInline
-            ></video>
+              muted
+              className="w-full rounded-md bg-black"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                background: "#000",
+              }}
+            />
             <button
               onClick={closeCamera}
-              className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg"
+              className="mt-3 btn btn-primary w-full"
             >
               Fechar Câmera
             </button>
@@ -740,27 +636,20 @@ export default function Page() {
         </div>
       )}
 
-      {/* Feedback little toast */}
-      {feedbackMessage && (
+      {/* Toast */}
+      {toast && (
         <div
-          id="feedback-modal"
-          className="fixed top-6 right-6 z-50 p-4 rounded-md shadow-md bg-elotur-secondary text-white"
+          className="toast"
+          style={{
+            background: toast.success ? "var(--[#10b981])" : "#ef4444",
+          }}
         >
-          {feedbackMessage}
+          {toast.message}
         </div>
       )}
 
-      {/* Provider feedback */}
-      {providerMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-3 rounded-md shadow-md bg-elotur-secondary text-white">
-          {providerMessage}
-        </div>
-      )}
-
-      <footer className="bg-gray-800 text-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm">
-          <p>© 2025 EloTur. Protótipo</p>
-        </div>
+      <footer className="mt-8 text-center text-sm text-gray-500">
+        © 2025 EloTur — Protótipo
       </footer>
     </main>
   );
